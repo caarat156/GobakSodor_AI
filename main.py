@@ -29,6 +29,7 @@ BONUS_COLOR = (82, 230, 154)
 SAFE_COLOR = (32, 54, 58)
 START_COLOR = (34, 83, 62)
 END_COLOR = (65, 57, 94)
+GUARD_LINE_COLOR = (52, 43, 48)
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Gobak Sodor AI")
@@ -42,7 +43,7 @@ BIG = pygame.font.SysFont("arial", 58, bold=True)
 # ---------------------------------------------------------------------------
 # Konfigurasi AI penjaga
 # ---------------------------------------------------------------------------
-GUARD_ROWS = [1, 2, 3]          # baris penjagaan tiap agen
+GUARD_ROWS = [2, 5, 8]          # baris penjagaan tiap agen (sesuai Gambar 1 proposal)
 HOME_COLS = [1, 3, 5]           # kolom "rumah" tiap penjaga (supaya menyebar)
 DEPTH_LIMIT = 3                 # 1 langkah penjaga + 2 langkah pemain
 START_POS = (3, 10)             # titik A
@@ -78,18 +79,15 @@ def draw_character(surface, pos, color, label, is_player=False):
         pygame.draw.rect(surface, color, (cx - radius, cy - radius, radius * 2, radius * 2), border_radius=5)
         label_pos = (cx, cy)
     if is_player:
-        # Pemain: label di bawah karakter
         label_img = SMALL.render(label, True, WHITE)
         surface.blit(label_img, label_img.get_rect(center=(cx, cy + 27)))
     else:
-        # Penjaga: label kecil di dalam badan agar tidak menimpa baris sebelahnya
         label_img = TINY.render(label, True, (25, 25, 30))
         surface.blit(label_img, label_img.get_rect(center=label_pos))
 
 
 def new_game():
     player = START_POS
-    # Penjaga mulai dari kolom rumah masing-masing
     guards = [(HOME_COLS[i], GUARD_ROWS[i]) for i in range(3)]
     # Item wajib satu di baris 5 dan satu di baris 0, bonus di baris 7.
     required1 = (random.randrange(COLS), 5)
@@ -139,8 +137,8 @@ def guard_moves(pos):
 # ---------------------------------------------------------------------------
 def evaluate_guard(guard_pos, player_pos, guard_row, others_cols, home_col):
     """
-    f(s) = -chase*Dhoriz - w2*Dvert + w3*C - w4*overlap - w5*Dhome
-    chase kuat hanya saat pemain dekat garis penjaga ini.
+    f(s) = -w1*Dhoriz - w2*Dvert + w3*C_intercept - w4*C_overlap - w5*D_home
+    w1 = 10 jika pemain dalam jarak 2 baris dari garis, 3 jika lebih jauh.
     """
     dhoriz = abs(guard_pos[0] - player_pos[0])
     dvert = abs(guard_row - player_pos[1])
@@ -155,10 +153,17 @@ def evaluate_guard(guard_pos, player_pos, guard_row, others_cols, home_col):
 
 
 def minimax_ab(guard_pos, player_pos, guard_row, depth, alpha, beta,
-               maximizing, p_left, others_cols, home_col):
-    # Pemain tertangkap = selalu menguntungkan penjaga (lebih cepat = lebih baik)
+               maximizing, p_left, others_cols, home_col, side):
+    """
+    side = sisi pemain terhadap garis penjaga saat keputusan diambil
+    (+1 di bawah garis, -1 di atas garis, 0 tepat di garis).
+    """
+    # TERMINAL: pemain tertangkap (lebih cepat = lebih baik bagi penjaga)
     if player_pos == guard_pos:
         return 100 + depth
+    # TERMINAL: pemain lolos melewati garis penjaga
+    if side and (player_pos[1] - guard_row) * side < 0:
+        return -100 - depth
     if depth == 0:
         return evaluate_guard(guard_pos, player_pos, guard_row, others_cols, home_col)
 
@@ -166,7 +171,7 @@ def minimax_ab(guard_pos, player_pos, guard_row, depth, alpha, beta,
         best = -10 ** 9
         for move in guard_moves(guard_pos):
             v = minimax_ab(move, player_pos, guard_row, depth - 1, alpha, beta,
-                           False, 2, others_cols, home_col)
+                           False, 2, others_cols, home_col, side)
             best = max(best, v)
             alpha = max(alpha, best)
             if alpha >= beta:
@@ -178,10 +183,10 @@ def minimax_ab(guard_pos, player_pos, guard_row, depth, alpha, beta,
     for move in legal_player_moves(player_pos):
         if p_left > 1:
             v = minimax_ab(guard_pos, move, guard_row, depth - 1, alpha, beta,
-                           False, p_left - 1, others_cols, home_col)
+                           False, p_left - 1, others_cols, home_col, side)
         else:
             v = minimax_ab(guard_pos, move, guard_row, depth - 1, alpha, beta,
-                           True, 2, others_cols, home_col)
+                           True, 2, others_cols, home_col, side)
         best = min(best, v)
         beta = min(beta, best)
         if alpha >= beta:
@@ -190,10 +195,12 @@ def minimax_ab(guard_pos, player_pos, guard_row, depth, alpha, beta,
 
 
 def choose_guard_move(guard_pos, player_pos, guard_row, others_cols, home_col):
+    dy = player_pos[1] - guard_row
+    side = (dy > 0) - (dy < 0)
     best_moves, best_value = [], -10 ** 9
     for move in guard_moves(guard_pos):
         v = minimax_ab(move, player_pos, guard_row, DEPTH_LIMIT - 1,
-                       -10 ** 9, 10 ** 9, False, 2, others_cols, home_col)
+                       -10 ** 9, 10 ** 9, False, 2, others_cols, home_col, side)
         if v > best_value:
             best_moves, best_value = [move], v
         elif v == best_value:
@@ -202,6 +209,7 @@ def choose_guard_move(guard_pos, player_pos, guard_row, others_cols, home_col):
 
 
 def move_guards(game):
+    """Gerakkan ketiga penjaga. Mengembalikan True jika pemain tertangkap."""
     old_guards = game["guards"][:]
     player_before_guard_turn = game["player"]
     for i, guard in enumerate(game["guards"]):
@@ -210,10 +218,12 @@ def move_guards(game):
         game["guards"][i] = choose_guard_move(
             guard, game["player"], GUARD_ROWS[i], others, HOME_COLS[i])
     if caught(game["player"], player_before_guard_turn, game["guards"], old_guards):
-        # Sesuai proposal: kembali ke A, item tetap tersimpan, tanpa pengurangan poin.
+        # Kembali ke A, item tetap tersimpan, tanpa pengurangan poin.
         game["player"] = START_POS
         game["reached_b"] = False
         game["message"] = "TERTANGKAP! Kembali ke titik A"
+        return True
+    return False
 
 
 def collect_items(game):
@@ -221,8 +231,7 @@ def collect_items(game):
     for i, item in enumerate(game["required"]):
         if not game["collected"][i] and p == item:
             game["collected"][i] = True
-            game["score"] += 1
-            game["message"] = "Item wajib didapat! (+1)"
+            game["message"] = "Item wajib didapat!"
     if not game["bonus_taken"] and p == game["bonus"]:
         game["bonus_taken"] = True
         game["score"] += 3
@@ -232,13 +241,16 @@ def collect_items(game):
         game["reached_b"] = True
         game["score"] += 2
         game["message"] = "Sampai di titik B! (+2)"
-    # Titik A = seluruh baris 10: +3 kalau baru kembali dari B
+    # Titik A = seluruh baris 10: hanya dihitung kalau pemain benar-benar
+    # berjalan pulang dari B (reached_b). Tertangkap mereset reached_b, jadi
+    # dikirim paksa ke A tidak memberi poin maupun kemenangan.
     if p[1] == ROWS - 1 and game["reached_b"]:
         game["reached_b"] = False
         game["score"] += 3
         game["message"] = "Kembali ke titik A! (+3)"
-    if all(game["collected"]):
-        game["status"] = "win"
+        # MENANG: kedua item wajib terambil DAN pulang dari B ke A
+        if all(game["collected"]):
+            game["status"] = "win"
 
 
 # ---------------------------------------------------------------------------
@@ -251,27 +263,34 @@ def draw_game(game):
     hud_font = pygame.font.SysFont("arial", 17)
     text(screen, f"SKOR: {game['score']}", hud_font, WHITE, (70, 22))
     text(screen, f"WAKTU: {remaining // 60:02d}:{remaining % 60:02d}", hud_font, WHITE, (WIDTH - 82, 22))
-    # "V" dipakai karena font Arial pygame tidak punya glyph centang
+    # Font Arial pygame tidak punya glyph centang, jadi pakai [V]
     text(screen, "ITEM WAJIB: " + " ".join("[V]" if v else "[ ]" for v in game["collected"]),
-         hud_font, ITEM_COLOR, (WIDTH // 2, 52))
-    text(screen, "WASD / Panah: gerak  |  ESC: menu", SMALL, MUTED, (WIDTH // 2, 82))
+         hud_font, ITEM_COLOR, (WIDTH // 2, 48))
+    if all(game["collected"]):
+        # Petunjuk jelas: item lengkap, tinggal kembali ke titik A
+        text(screen, ">> KEMBALI KE A UNTUK MENANG! <<", hud_font, BONUS_COLOR, (WIDTH // 2, 74))
+    else:
+        text(screen, "Ambil 2 item wajib, lalu kembali ke A", SMALL, BONUS_COLOR, (WIDTH // 2, 74))
+    text(screen, "WASD / Panah: gerak  |  ESC: menu", SMALL, MUTED, (WIDTH // 2, 96))
 
     for y in range(ROWS):
         for x in range(COLS):
             rect = pygame.Rect(x * CELL, HUD_H + y * CELL, CELL, CELL)
-            fill = BG
-            if y == 10:
+            if y == ROWS - 1:
                 fill = START_COLOR
             elif y == 0:
                 fill = END_COLOR
             elif y in GUARD_ROWS:
-                fill = (52, 43, 48)
-            elif y in (4, 6, 9):
+                fill = GUARD_LINE_COLOR
+            else:
                 fill = SAFE_COLOR
             pygame.draw.rect(screen, fill, rect)
             pygame.draw.rect(screen, GRID, rect, 1)
     text(screen, "B / FINISH", SMALL, WHITE, (WIDTH // 2, HUD_H + 15))
-    text(screen, "A / START", SMALL, WHITE, (WIDTH // 2, HUD_H + (ROWS - 1) * CELL + CELL - 13))
+    if all(game["collected"]):
+        text(screen, "A / KEMBALI KE SINI!", SMALL, ITEM_COLOR, (WIDTH // 2, HUD_H + (ROWS - 1) * CELL + CELL - 13))
+    else:
+        text(screen, "A / START", SMALL, WHITE, (WIDTH // 2, HUD_H + (ROWS - 1) * CELL + CELL - 13))
 
     for i, item in enumerate(game["required"]):
         if not game["collected"][i]:
@@ -329,13 +348,13 @@ def instruction_screen():
     margin = 22
     max_text_width = WIDTH - margin * 2
 
+    # 5 poin sesuai ketentuan tugas (4-5 poin)
     instructions = [
         "1. Kumpulkan 2 item wajib: satu di baris 5 dan satu di baris 0.",
-        "2. Ambil item bonus di baris 7 untuk mendapat +3 poin.",
+        "2. Item bonus di baris 7 memberi +3; sampai di B +2, kembali ke A +3.",
         "3. Gerak satu kotak dengan W/A/S/D atau tombol panah.",
-        "4. Setelah 2 langkah pemain, 3 penjaga AI bergerak.",
-        "5. Jika tertangkap, kembali ke A; item yang didapat tetap tersimpan.",
-        "6. Selesaikan misi sebelum 2 menit untuk MENANG.",
+        "4. Setiap 2 langkah pemain, 3 penjaga AI bergerak. Jika tertangkap, kembali ke A (item tetap tersimpan).",
+        "5. Ambil kedua item lalu kembali ke A sebelum 2 menit untuk MENANG.",
     ]
 
     def wrap_text(message, font, max_width):
@@ -398,7 +417,8 @@ def instruction_screen():
 def result_screen(game):
     won = game["status"] == "win"
     headline = "MENANG!" if won else "KALAH!"
-    subtitle = "Misi item wajib berhasil diselesaikan." if won else "Waktu habis sebelum semua item wajib didapat."
+    subtitle = ("Item wajib lengkap dan kembali ke titik A." if won
+                else "Waktu habis sebelum misi selesai.")
     while True:
         screen.fill(BG)
         text(screen, headline, BIG, BONUS_COLOR if won else (255, 100, 100), (WIDTH // 2, HEIGHT // 2 - 100))
@@ -452,13 +472,13 @@ def play_game():
                         if caught(game["player"], old_player, game["guards"], old_guards):
                             game["player"] = START_POS
                             game["reached_b"] = False
+                            game["player_steps"] = 0
                             game["message"] = "TERTANGKAP! Kembali ke titik A"
                         else:
                             collect_items(game)
                         if game["status"] == "playing" and game["player_steps"] >= 2:
                             move_guards(game)
                             game["player_steps"] = 0
-                            collect_items(game)
         clock.tick(FPS)
     if game["status"] == "playing":
         game["status"] = "lose"

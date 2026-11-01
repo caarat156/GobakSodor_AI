@@ -254,29 +254,76 @@ def menu_screen():
         clock.tick(FPS)
 
 def instruction_screen():
+    # Semua teks dibungkus sesuai lebar jendela agar tidak terpotong.
+    title_font = pygame.font.SysFont("arial", 29, bold=True)
+    body_font = pygame.font.SysFont("arial", 17)
+    hint_font = pygame.font.SysFont("arial", 15)
+    key_font = pygame.font.SysFont("arial", 20, bold=True)
+    margin = 22
+    max_text_width = WIDTH - margin * 2
+
+    instructions = [
+        "1. Kumpulkan 2 item wajib: satu di baris 5 dan satu di baris 0.",
+        "2. Ambil item bonus di baris 7 untuk mendapat +3 poin.",
+        "3. Gerak satu kotak dengan W/A/S/D atau tombol panah.",
+        "4. Setelah 2 langkah pemain, 3 penjaga AI bergerak.",
+        "5. Jika tertangkap, kembali ke A; item yang didapat tetap tersimpan.",
+        "6. Selesaikan misi sebelum 2 menit untuk MENANG.",
+    ]
+
+    def wrap_text(message, font, max_width):
+        words = message.split()
+        rows, current = [], ""
+        for word in words:
+            candidate = word if not current else current + " " + word
+            if font.size(candidate)[0] <= max_width:
+                current = candidate
+            else:
+                if current:
+                    rows.append(current)
+                current = word
+        if current:
+            rows.append(current)
+        return rows
+
     while True:
         screen.fill(BG)
-        text(screen, "PETUNJUK PERMAINAN", TITLE, WHITE, (WIDTH//2, 90))
-        lines = [
-            "1. Kumpulkan 2 item wajib: satu di baris 5 dan satu di baris 0.",
-            "2. Item bonus di baris 7 memberi +3 poin.",
-            "3. Gerak dengan W/A/S/D atau tombol panah; satu kotak per langkah.",
-            "4. Setelah 2 langkah pemain, 3 penjaga AI bergerak dengan Minimax.",
-            "5. Jika tertangkap, kembali ke A; item yang didapat tetap tersimpan.",
-            "6. Selesaikan misi sebelum 2 menit untuk MENANG.",
-            "",
-            "ENTER = mulai permainan     ESC = kembali ke menu",
+        text(screen, "PETUNJUK PERMAINAN", title_font, WHITE, (WIDTH//2, 48))
+        text(screen, "Cara bermain Gobak Sodor AI", hint_font, BONUS_COLOR, (WIDTH//2, 78))
+
+        y = 112
+        line_gap = 22
+        item_gap = 9
+        for instruction in instructions:
+            wrapped = wrap_text(instruction, body_font, max_text_width)
+            for row in wrapped:
+                text(screen, row, body_font, MUTED, (WIDTH//2, y))
+                y += line_gap
+            y += item_gap
+
+        # Ilustrasi tombol WASD dengan ukuran yang proporsional.
+        key_size = 34
+        key_gap = 7
+        keys_y = HEIGHT - 100
+        positions = [
+            ("W", WIDTH//2, keys_y),
+            ("A", WIDTH//2 - key_size - key_gap, keys_y + key_size + 5),
+            ("S", WIDTH//2, keys_y + key_size + 5),
+            ("D", WIDTH//2 + key_size + key_gap, keys_y + key_size + 5),
         ]
-        centered_lines(lines, 170, FONT, MUTED, 43)
-        # Key hint illustration
-        for key, x, y in [("W", WIDTH//2, HEIGHT-100), ("A", WIDTH//2-48, HEIGHT-62), ("S", WIDTH//2, HEIGHT-62), ("D", WIDTH//2+48, HEIGHT-62)]:
-            r = pygame.Rect(x-17, y-16, 34, 32)
-            pygame.draw.rect(screen, (57, 76, 95), r, border_radius=5)
-            text(screen, key, FONT, WHITE, (x,y))
+        for key, cx, cy in positions:
+            rect = pygame.Rect(cx-key_size//2, cy-key_size//2, key_size, key_size)
+            pygame.draw.rect(screen, (57, 76, 95), rect, border_radius=5)
+            text(screen, key, key_font, WHITE, (cx, cy))
+
+        text(screen, "ENTER = mulai permainan", hint_font, WHITE, (WIDTH//2, HEIGHT-28))
+        text(screen, "ESC = kembali ke menu", hint_font, MUTED, (WIDTH//2, HEIGHT-10))
         pygame.display.flip()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); raise SystemExit
+                pygame.quit()
+                raise SystemExit
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     return

@@ -278,3 +278,82 @@ def instruction_screen():
                     return
         clock.tick(FPS)
 
+
+def result_screen(game):
+    won = game.won
+    headline = "MENANG!" if won else "KALAH"
+    color = BONUS_COLOR if won else GUARD_COLORS[0]
+    subtitle = "Misi selesai! Item wajib lengkap dan kembali ke A." if won else "Waktu habis sebelum misi selesai."
+
+    while True:
+        screen.fill(BG)
+        draw_text(screen, headline, BIG, color, (WIDTH // 2, HEIGHT // 2 - 120))
+        draw_text(screen, subtitle, FONT, WHITE, (WIDTH // 2, HEIGHT // 2 - 60))
+
+        draw_text(screen, f"SKOR AKHIR: {game.score}", TITLE, ITEM_COLOR, (WIDTH // 2, HEIGHT // 2))
+        recap = f"Item wajib: {sum(game.collected)}/2    |    Bonus: {'Didapat' if game.bonus_collected else 'Belum didapat'}"
+        draw_text(screen, recap, FONT, MUTED, (WIDTH // 2, HEIGHT // 2 + 55))
+
+        draw_text(screen, f"Total Node AI Dievaluasi: {game.total_nodes}", SMALL, MUTED, (WIDTH // 2, HEIGHT // 2 + 95))
+
+        draw_text(screen, "ENTER / R = Main lagi", FONT, WHITE, (WIDTH // 2, HEIGHT // 2 + 155))
+        draw_text(screen, "ESC = Menu utama", FONT, MUTED, (WIDTH // 2, HEIGHT // 2 + 195))
+
+        pygame.display.flip()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_r):
+                    return "restart"
+                if event.key == pygame.K_ESCAPE:
+                    return "menu"
+        clock.tick(FPS)
+
+
+def play_game():
+    game = GobakSodorGame()
+    keymap = {
+        pygame.K_w: (-1, 0), pygame.K_UP: (-1, 0),
+        pygame.K_s: (1, 0), pygame.K_DOWN: (1, 0),
+        pygame.K_a: (0, -1), pygame.K_LEFT: (0, -1),
+        pygame.K_d: (0, 1), pygame.K_RIGHT: (0, 1),
+        pygame.K_SPACE: (0, 0),
+    }
+
+    while not game.finished:
+        game.check_timeout()
+        if game.finished:
+            break
+
+        draw_game(game)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return "menu"
+                if event.key in keymap:
+                    game.player_turn(keymap[event.key])
+
+        clock.tick(FPS)
+
+    return result_screen(game)
+
+
+def main():
+    while True:
+        choice = menu_screen()
+        if choice == "start":
+            while True:
+                res = play_game()
+                if res == "restart":
+                    continue
+                break
+
+
+if __name__ == "__main__":
+    main()

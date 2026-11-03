@@ -93,3 +93,51 @@ class GobakSodorGame:
             self.won = True
             self.status = "MENANG! Kedua item wajib berhasil dikumpulkan."
         self.check_timeout()
+
+    def _collect_items(self):
+        for i, item in enumerate(self.mandatory_items):
+            if not self.collected[i] and self.player == item:
+                self.collected[i] = True
+                self.status = f"Item wajib {i + 1} berhasil diambil!"
+        if not self.bonus_collected and self.player == self.bonus_item:
+            self.bonus_collected = True
+            self.score += 3
+            self.status = "Item bonus didapatkan: +3 poin."
+
+    def _caught_by_any_guard(self, old_player, new_player):
+        for guard in self.guards:
+            # Same cell or crossing positions in one move.
+            if new_player == guard or (old_player == guard and new_player == old_player):
+                return True
+        return False
+
+    def _reset_to_start(self, message):
+        self.player = (10, 3)
+        self.player_steps = 0
+        self.reached_finish_this_trip = False
+        self.status = message
+        # Items already collected remain collected, as specified in the proposal.
+
+    def _move_guards(self, old_player):
+        start = time.perf_counter()
+        updated = []
+        old_guards = list(self.guards)
+        for index, guard in enumerate(self.guards):
+            new_col, nodes = choose_guard_move(
+                guard=guard,
+                player=self.player,
+                guard_row=self.guard_rows[index],
+                all_guards=self.guards,
+                depth=3
+            )
+            self.total_nodes += nodes
+            updated.append((guard[0], new_col))
+        self.guards = updated
+        self.last_ai_ms = (time.perf_counter() - start) * 1000
+        # Detect a swap: player and guard cross positions during the same phase.
+        for old_guard, new_guard in zip(old_guards, updated):
+            if old_guard == self.player and new_guard == old_player:
+                return True
+            if new_guard == self.player:
+                return True
+        return False

@@ -2,9 +2,9 @@
 Gobak Sodor AI — Minimax + Alpha-Beta Pruning
 Antarmuka Pengguna (UI) Lapangan & Karakter Pygame
 """
-import sys
 import pygame
-from game import GobakSodorGame, COLS, ROWS
+import sys
+from game import GobakSodorGame, COLS, ROWS, CELL, MARGIN, WIDTH, HEIGHT, COLORS
 
 pygame.init()
 
@@ -181,36 +181,36 @@ def draw_game(game):
 
     pygame.display.flip()
 
-    def menu_screen():
-        while True:
-            screen.fill(BG)
-            draw_text(screen, "GOBAK SODOR AI", TITLE, WHITE, (WIDTH // 2, HEIGHT // 2 - 120))
-            draw_text(screen, "Minimax + Alpha-Beta Pruning", FONT, BONUS_COLOR, (WIDTH // 2, HEIGHT // 2 - 65))
-
-            lines = [
-                "Tekan ENTER untuk mulai",
-                "Tekan H untuk petunjuk permainan",
-                "ESC untuk keluar"
+def menu_screen():
+    while True:
+        screen.fill(BG)
+        draw_text(screen, "GOBAK SODOR AI", TITLE, WHITE, (WIDTH // 2, HEIGHT // 2 - 120))
+        draw_text(screen, "Minimax + Alpha-Beta Pruning", FONT, BONUS_COLOR, (WIDTH // 2, HEIGHT // 2 - 65))
+            
+        lines = [
+            "Tekan ENTER untuk mulai",
+            "Tekan H untuk petunjuk permainan",
+            "ESC untuk keluar"
             ]
-            y = HEIGHT // 2 + 10
-            for line in lines:
-                draw_text(screen, line, FONT, MUTED, (WIDTH // 2, y))
-                y += 42
+        y = HEIGHT // 2 + 10
+        for line in lines:
+            draw_text(screen, line, FONT, MUTED, (WIDTH // 2, y))
+            y += 42
 
-            pygame.display.flip()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+        pygame.display.flip()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    return "start"
+                if event.key == pygame.K_h:
+                    instruction_screen()
+                if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_RETURN:
-                        return "start"
-                    if event.key == pygame.K_h:
-                        instruction_screen()
-                    if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
-            clock.tick(FPS)
+        clock.tick(FPS)
 
 
 def instruction_screen():
@@ -346,7 +346,7 @@ def play_game():
 
 def main():
     while True:
-        choice = menu_screen()
+        choice = menu_screen() 
         if choice == "start":
             while True:
                 res = play_game()

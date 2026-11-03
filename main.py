@@ -180,3 +180,101 @@ def draw_game(game):
     draw_text(screen, ai_info, TINY, MUTED, (WIDTH // 2, footer_y + 24))
 
     pygame.display.flip()
+
+    def menu_screen():
+        while True:
+            screen.fill(BG)
+            draw_text(screen, "GOBAK SODOR AI", TITLE, WHITE, (WIDTH // 2, HEIGHT // 2 - 120))
+            draw_text(screen, "Minimax + Alpha-Beta Pruning", FONT, BONUS_COLOR, (WIDTH // 2, HEIGHT // 2 - 65))
+
+            lines = [
+                "Tekan ENTER untuk mulai",
+                "Tekan H untuk petunjuk permainan",
+                "ESC untuk keluar"
+            ]
+            y = HEIGHT // 2 + 10
+            for line in lines:
+                draw_text(screen, line, FONT, MUTED, (WIDTH // 2, y))
+                y += 42
+
+            pygame.display.flip()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        return "start"
+                    if event.key == pygame.K_h:
+                        instruction_screen()
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+            clock.tick(FPS)
+
+
+def instruction_screen():
+    max_w = WIDTH - MARGIN_X * 2
+    instructions = [
+        "1. Kumpulkan 2 item wajib: satu di baris 5 dan satu di baris 0.",
+        "2. Item bonus di baris 7 memberi +3 poin.",
+        "3. Poin bertambah saat sampai di B (+2) dan kembali ke A (+3).",
+        "4. Bergerak dengan W/A/S/D atau Panah. Gunakan SPACE untuk diam.",
+        "5. Setiap 2 langkah pemain, ketiga agen AI bergerak bersamaan.",
+        "6. Jika tertangkap, kembali ke titik A (item tetap tersimpan).",
+    ]
+
+    def wrap_text(msg, font, limit):
+        words = msg.split()
+        rows, cur = [], ""
+        for w in words:
+            test = w if not cur else cur + " " + w
+            if font.size(test)[0] <= limit:
+                cur = test
+            else:
+                if cur:
+                    rows.append(cur)
+                cur = w
+        if cur:
+            rows.append(cur)
+        return rows
+
+    while True:
+        screen.fill(BG)
+        draw_text(screen, "PETUNJUK PERMAINAN", TITLE, WHITE, (WIDTH // 2, 60))
+        draw_text(screen, "Cara bermain Gobak Sodor AI", FONT, BONUS_COLOR, (WIDTH // 2, 105))
+
+        y = 150
+        for item in instructions:
+            for line in wrap_text(item, SMALL, max_w):
+                draw_text(screen, line, SMALL, MUTED, (WIDTH // 2, y))
+                y += 24
+            y += 10
+
+        # Diagram visual tombol keyboard
+        btn_y = HEIGHT - 140
+        btn_sz = 40
+        gap = 8
+        keys = [
+            ("W", WIDTH // 2, btn_y),
+            ("A", WIDTH // 2 - btn_sz - gap, btn_y + btn_sz + 6),
+            ("S", WIDTH // 2, btn_y + btn_sz + 6),
+            ("D", WIDTH // 2 + btn_sz + gap, btn_y + btn_sz + 6),
+        ]
+        for k, kx, ky in keys:
+            r = pygame.Rect(kx - btn_sz // 2, ky - btn_sz // 2, btn_sz, btn_sz)
+            pygame.draw.rect(screen, BADGE_BG, r, border_radius=6)
+            draw_text(screen, k, HUD_FONT, WHITE, (kx, ky))
+
+        draw_text(screen, "ENTER / ESC = kembali", SMALL, WHITE, (WIDTH // 2, HEIGHT - 35))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_h):
+                    return
+        clock.tick(FPS)
+
